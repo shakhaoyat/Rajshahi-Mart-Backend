@@ -3,7 +3,7 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
 
 const client = new MongoClient(process.env.MONGODB_URI as string);
-const db = client.db();
+const db = client.db("rajshahimart");
 
 // Better Auth owns the `user` / `session` / `account` collections.
 // We extend the user schema with a `role` field so every account

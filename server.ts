@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { toNodeHandler } from "better-auth/node";
 import { connectDB } from "./src/config/db.js";
 import { auth } from "./src/lib/auth.js";
 import productsRouter from "./src/routes/products.js";
@@ -17,12 +18,14 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+// Better Auth handles its own routes.
+// IMPORTANT: this must be mounted BEFORE express.json(), because
+// better-auth parses the request body itself. If express.json() runs
+// first, the body stream is already consumed and better-auth's handler
+// will fail (or silently receive an empty body).
+app.all("/api/auth/*", toNodeHandler(auth));
 
-// Better Auth handles its own routes
-app.all("/api/auth/*", (req, res, next) => {
-  next();
-});
+app.use(express.json());
 
 // API routes
 app.use("/api/products", productsRouter);
