@@ -1,19 +1,28 @@
-import app from '../src/app';
-import mongoose from 'mongoose';
+import "dotenv/config";
+import app from "../src/app.js";
+import { connectDB } from "../src/config/db.js";
 
-let isConnected = false;
+let dbPromise: Promise<void> | null = null;
 
-async function connectDB() {
-      if (isConnected) return;
-
-      const uri = process.env.MONGODB_URI as string;
-      await mongoose.connect(uri);
-      isConnected = true;
+async function ensureDB() {
+      if (!dbPromise) {
+            dbPromise = connectDB()
+                  .then(() => { })
+                  .catch((err) => {
+                        dbPromise = null; // failed connect হলে পরের request retry করতে পারবে
+                        throw err;
+                  });
+      }
+      return dbPromise;
 }
 
-
-
 export default async function handler(req: any, res: any) {
-      await connectDB();
+      try {
+            await ensureDB();
+      } catch (err) {
+            console.error("MongoDB connection failed:", err);
+            res.status(500).json({ error: "Database connection failed" });
+            return;
+      }
       return app(req, res);
 }
