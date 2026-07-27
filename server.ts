@@ -22,9 +22,14 @@ app.use(
   })
 );
 
-// Better Auth handles its own routes (signup/login/session/etc) at /api/auth/*
-// It needs the RAW request, so it's mounted before express.json().
-app.all("/api/auth/*", toNodeHandler(auth));
+// Log all requests
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Auth routes (signup/login/session/etc)
+app.use("/api/auth", toNodeHandler(auth));
 
 // Skip global JSON parsing for the Stripe webhook route — it needs the raw
 // body to verify the signature (handled inside payments.ts with express.raw()).
