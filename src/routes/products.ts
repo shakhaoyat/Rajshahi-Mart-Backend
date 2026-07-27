@@ -2,10 +2,55 @@ import { Router, type Request, type Response } from "express";
 import Product from "../models/Product.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireRole } from "../middleware/requireRole.js";
+import axios from "axios";
 
 const router = Router();
 
-// Public: browse active products with search, filter, sort, pagination
+const DUMMY_JSON_URL = "https://dummyjson.com/products";
+
+// Proxy to DummyJSON for product listing (supports query params)
+router.get("/dummyjson", async (req: Request, res: Response) => {
+  try {
+    const { limit = 10, skip = 0, select, ...queryParams } = req.query;
+    // Build query string for DummyJSON
+    const params = new URLSearchParams();
+    if (limit) params.append("limit", limit.toString());
+    if (skip) params.append("skip", skip.toString());
+    if (select) {
+      // DummyJSON uses `select` field for field selection
+      params.append("select", select as string);
+    }
+    // Forward other query params (like search, minPrice, maxPrice, sort) as needed?
+    // DummyJSON supports search via `q` parameter.
+    // We'll map our query params to DummyJSON's supported ones.
+    // For simplicity, we just forward all query params as-is.
+    Object.keys(req.query).forEach((key) => {
+      if (key !== "limit" && key !== "skip" && key !== "select") {
+        params.append(key, (req.query as any)[key]);
+      }
+    });
+
+    const response = await axios.get(`${DUMMY_JSON_URL}?${params.toString()}`);
+    res.json(response.data);
+  } catch (err) {
+    console.error("Proxy to DummyJSON error:", err);
+    res.status(500).json({ error: "Failed to fetch products from DummyJSON" });
+  }
+});
+
+// Proxy to DummyJSON for single product
+router.get("/dummyjson/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const response = await axios.get(`${DUMMY_JSON_URL}/${id}`);
+    res.json(response.data);
+  } catch (err) {
+    console.error("Proxy to DummyJSON single product error:", err);
+    res.status(500).json({ error: "Failed to fetch product from DummyJSON" });
+  }
+});
+
+// Public: browse active products with search, filter, sort, pagination (local products)
 router.get("/", async (req: Request, res: Response) => {
   try {
     const {
@@ -74,7 +119,7 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// Public: single product
+// Public: single product (local)
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const product = await Product.findById(req.params.id);

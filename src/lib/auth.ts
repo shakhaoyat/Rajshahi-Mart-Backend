@@ -25,6 +25,12 @@ export const auth = betterAuth({
         defaultValue: "buyer", // buyer | seller | admin
         input: true, // allow client to set it at signup (e.g. "I'm a seller")
       },
+      profilePicture: {
+        type: "string",
+        required: false,
+        defaultValue: "", // URL of profile picture; empty means use default avatar
+        input: true, // allow client to set it at signup and update
+      },
     },
   },
   session: {
@@ -35,3 +41,5 @@ export const auth = betterAuth({
     crossSubDomainCookies: { enabled: false },
   },
 });
+
+export { client, db };

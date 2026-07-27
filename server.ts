@@ -10,6 +10,8 @@ import productsRouter from "./src/routes/products.js";
 import ordersRouter from "./src/routes/orders.js";
 import paymentsRouter from "./src/routes/payments.js";
 import adminRouter from "./src/routes/admin.js";
+import purchasesRouter from "./src/routes/purchases.js";
+import userRouter from "./src/routes/user.js";
 
 const app = express();
 
@@ -35,6 +37,8 @@ app.use("/api/products", productsRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/purchases", purchasesRouter);
+app.use("/api/user", userRouter);
 
 app.get("/api/health", (_req: Request, res: Response) => res.json({ ok: true }));
 
