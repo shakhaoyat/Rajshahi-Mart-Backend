@@ -1,56 +1,10 @@
-import { Router, type Request, type Response } from "express";
+import { Request, Response } from "express";
 import Product from "../models/Product.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireRole } from "../middleware/requireRole.js";
-import axios from "axios";
 
-const router = Router();
+const PAGE_SIZE = 12;
 
-const DUMMY_JSON_URL = "https://dummyjson.com/products";
-
-// Proxy to DummyJSON for product listing (supports query params)
-router.get("/dummyjson", async (req: Request, res: Response) => {
-  try {
-    const { limit = 10, skip = 0, select, ...queryParams } = req.query;
-    // Build query string for DummyJSON
-    const params = new URLSearchParams();
-    if (limit) params.append("limit", limit.toString());
-    if (skip) params.append("skip", skip.toString());
-    if (select) {
-      // DummyJSON uses `select` field for field selection
-      params.append("select", select as string);
-    }
-    // Forward other query params (like search, minPrice, maxPrice, sort) as needed?
-    // DummyJSON supports search via `q` parameter.
-    // We'll map our query params to DummyJSON's supported ones.
-    // For simplicity, we just forward all query params as-is.
-    Object.keys(req.query).forEach((key) => {
-      if (key !== "limit" && key !== "skip" && key !== "select") {
-        params.append(key, (req.query as any)[key]);
-      }
-    });
-
-    const response = await axios.get(`${DUMMY_JSON_URL}?${params.toString()}`);
-    res.json(response.data);
-  } catch (err) {
-    console.error("Proxy to DummyJSON error:", err);
-    res.status(500).json({ error: "Failed to fetch products from DummyJSON" });
-  }
-});
-
-// Proxy to DummyJSON for single product
-router.get("/dummyjson/:id", async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const response = await axios.get(`${DUMMY_JSON_URL}/${id}`);
-    res.json(response.data);
-  } catch (err) {
-    console.error("Proxy to DummyJSON single product error:", err);
-    res.status(500).json({ error: "Failed to fetch product from DummyJSON" });
-  }
-});
-
-// Public: browse active products with search, filter, sort, pagination (local products)
 router.get("/", async (req: Request, res: Response) => {
   try {
     const {
@@ -64,7 +18,7 @@ router.get("/", async (req: Request, res: Response) => {
     } = req.query as Record<string, string>;
 
     const filter: Record<string, unknown> = { isActive: true };
-
+    
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: "i" } },
@@ -109,7 +63,7 @@ router.get("/", async (req: Request, res: Response) => {
     res.json({
       data,
       total,
-      page: pageNum,
+      page: parseInt(page, 10),
       limit: limitNum,
       totalPages: Math.ceil(total / limitNum),
     });
@@ -119,16 +73,11 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// Public: single product (local)
+// Public: single product
 router.get("/:id", async (req: Request, res: Response) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ error: "Product not found" });
-    res.json(product);
-  } catch (err) {
-    console.error("Product detail error:", err);
-    res.status(500).json({ error: "Failed to fetch product" });
-  }
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ error: "Product not found" });
+  res.json(product);
 });
 
 // Seller: list own products
@@ -138,7 +87,7 @@ router.get("/seller/mine", requireAuth, requireRole("seller", "admin"), async (r
 });
 
 // Seller: create product
-router.post("/", requireAuth, requireRole("seller", "admin"), async (req: Request, res: Response) => {
+router.post("/", requireAuth, requireRole("seller", "admin"), validateProduct(createProductSchema), async (req: Request, res: Response) => {
   const { title, description, price, image, stock, category } = req.body;
   if (!title || price == null) {
     return res.status(400).json({ error: "title and price are required" });
@@ -157,7 +106,7 @@ router.post("/", requireAuth, requireRole("seller", "admin"), async (req: Reques
 });
 
 // Seller: update own product (admin can edit any)
-router.put("/:id", requireAuth, requireRole("seller", "admin"), async (req: Request, res: Response) => {
+router.put("/:id", requireAuth, requireRole("seller", "admin"), validateProduct(createProductSchema), async (req: Request, res: Response) => {
   const product = await Product.findById(req.params.id);
   if (!product) return res.status(404).json({ error: "Product not found" });
   if (product.sellerId !== req.user!.id && req.user!.role !== "admin") {
@@ -179,7 +128,7 @@ router.delete("/:id", requireAuth, requireRole("seller", "admin"), async (req: R
   res.json({ success: true });
 });
 
-// Seller/Admin: toggle product active status
+// Seller: toggle product active status
 router.patch("/:id/toggle", requireAuth, requireRole("seller", "admin"), async (req: Request, res: Response) => {
   const product = await Product.findById(req.params.id);
   if (!product) return res.status(404).json({ error: "Product not found" });
@@ -190,5 +139,3 @@ router.patch("/:id/toggle", requireAuth, requireRole("seller", "admin"), async (
   await product.save();
   res.json(product);
 });
-
-export default router;

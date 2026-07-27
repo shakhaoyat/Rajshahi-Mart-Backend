@@ -1,6 +1,7 @@
+import { z } from "zod";
+
 export type Role = "buyer" | "seller" | "admin";
 
-// Shape of the Better Auth session user, extended with our custom `role` field.
 export interface AuthUser {
   id: string;
   email: string;
