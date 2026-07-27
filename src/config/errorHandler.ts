@@ -1,34 +1,47 @@
-## Phase 7: Backend Hardening
+import { Request, Response, NextFunction } from "express";
+import { randomUUID } from "crypto";
 
-### Task 7.1 — Implement Pagination on All List Endpoints
+export function errorHandler(
+  err: Error,
+  req: Request,
+  res: Response,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  next: NextFunction
+) {
+  // Generate request ID (built-in, no extra dependency needed)
+  const requestId = randomUUID();
 
-Update all list endpoints to support pagination:
+  // Log the error with structured data
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    requestId,
+    method: req.method,
+    path: req.originalUrl,
+    error: err.message,
+    stack: err.stack,
+  }));
 
-- `GET /api/products` - Add `?page=1&limit=12` parameters
-- `GET /api/orders/mine` - Add pagination
-- `GET /api/orders/sales` - Add pagination
-- `GET /api/admin/products` - Add pagination
-- `GET /api/admin/orders` - Add pagination
+  // Determine the appropriate status code
+  const status = err instanceof Error ? 500 : 400;
 
-### Task 7.2 — Implement Centralized Error Handling
+  // Prepare the response
+  const errorResponse: {
+    error: string;
+    timestamp: string;
+    path: string;
+    requestId: string;
+    details?: string;
+  } = {
+    error: err.message || "Internal Server Error",
+    timestamp: new Date().toISOString(),
+    path: req.originalUrl,
+    requestId,
+  };
 
-Create a centralized error handler middleware:
+  // Add more error details in development
+  if (process.env.NODE_ENV === "development") {
+    errorResponse.details = err.stack;
+  }
 
-- File: `backend/src/middleware/errorHandler.ts`
-- Handle all uncaught exceptions
-- Return consistent error responses
-- Log errors for monitoring
-
-### Task 7.3 — Add Rate Limiting
-
-Implement rate limiting for:
-- Authentication endpoints
-- Payment/webhook endpoints
-- High-traffic API endpoints
-
-### Task 7.4 — Implement Comprehensive Logging
-
-Add structured logging throughout the application:
-- Log all incoming requests with method, path, and response status
-- Log errors with stack traces
-- Include correlation IDs for tracing requests
+  res.status(status).json(errorResponse);
+}
